@@ -1,7 +1,15 @@
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::type_complexity)]
-use bevy::{prelude::*, render::camera::CameraProjection};
-use bevy_inspector_egui::{InspectorPlugin, WorldInspectorPlugin, Inspectable, RegisterInspectable};
+use bevy::{prelude::*, render::camera::CameraProjection, utils::HashMap};
+use bevy_inspector_egui::{
+    Inspectable, InspectorPlugin, RegisterInspectable, WorldInspectorPlugin,
+};
+
+pub const HEIGHT: f32 = 900.0;
+
+pub const RESOLUTION:f32 = 16.0 / 9.0;
+
+pub const INVENTORY_SIZE:usize = 10;
 
 #[derive(Component, Inspectable)]
 pub struct Player {
@@ -11,7 +19,7 @@ pub struct Player {
 
 #[derive(Component, Default, Inspectable)]
 pub struct Inventory {
-    items: [InventoryEntry; 5],
+    items: [InventoryEntry; INVENTORY_SIZE],
 }
 
 #[derive(Default, Inspectable)]
@@ -25,7 +33,7 @@ pub struct Pickupable {
     item: ItemType,
 }
 
-#[derive(Default, Inspectable, PartialEq, Eq, Clone, Copy)]
+#[derive(Default, Inspectable, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum ItemType {
     #[default]
     None,
@@ -40,24 +48,27 @@ pub enum ItemType {
 pub struct PlaceHolderGraphics {
     texture_atlas: Handle<TextureAtlas>,
     player_index: usize,
-    flint_index: usize,
+    box_index: usize,
+    item_map: HashMap<ItemType, usize>,
 }
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::rgb(0.3, 0.5, 0.3)))
         .insert_resource(WindowDescriptor {
-            width: 1600.0,
-            height: 900.0,
+            width: HEIGHT * RESOLUTION,
+            height: HEIGHT,
             title: "Survival Bevy".to_string(),
             vsync: true,
             resizable: false,
             ..Default::default()
         })
         .add_startup_system_to_stage(StartupStage::PreStartup, load_graphics)
+        .add_startup_system_to_stage(StartupStage::PreStartup, spawn_camera)
         .add_startup_system(spawn_player)
         .add_startup_system(spawn_flint)
-        .add_startup_system(spawn_camera)
+        .add_startup_system(spawn_inventory_ui)
         .add_system(player_movement)
         .add_system(camera_follow)
         .add_system(player_pickup)
@@ -66,6 +77,33 @@ fn main() {
         .register_inspectable::<Player>()
         .register_inspectable::<Pickupable>()
         .run();
+}
+
+fn spawn_inventory_ui(
+    mut commands: Commands,
+    graphics: Res<PlaceHolderGraphics>,
+    camera_query: Query<Entity, With<Camera>>
+) {
+    let camera_ent = camera_query.single();
+
+    let mut boxes = Vec::new();
+    let spacing = 65.0;
+    let starting_x = (-(INVENTORY_SIZE as f32) / 2.0 + 0.5) * spacing;
+
+    let mut sprite = TextureAtlasSprite::new(graphics.box_index);
+    sprite.custom_size = Some(Vec2::splat(50.0));
+    for i in 0..INVENTORY_SIZE {
+        boxes.push(commands.spawn_bundle(SpriteSheetBundle {
+            sprite: sprite.clone(),
+            texture_atlas: graphics.texture_atlas.clone(),
+            transform: Transform {
+                translation: Vec3::new(starting_x + spacing * i as f32, -250.0, -1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        }).id());
+    }
+    commands.entity(camera_ent).push_children(&boxes);
 }
 
 fn player_pickup(
@@ -105,73 +143,18 @@ fn player_pickup(
 }
 
 fn spawn_flint(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
-    let mut sprite = TextureAtlasSprite::new(graphics.flint_index);
+    let mut sprite = TextureAtlasSprite::new(*graphics.item_map.get(&ItemType::Flint).expect("No graphic for flint"));
     sprite.custom_size = Some(Vec2::splat(25.0));
     commands
-    .spawn_bundle(SpriteSheetBundle {
-        sprite: sprite.clone(),
-        texture_atlas: graphics.texture_atlas.clone(),
-        ..Default::default()
-    })
-    .insert(Pickupable {
-        item: ItemType::Flint,
-    })
-    .insert(Name::new("Flint"));
-
-    commands
-    .spawn_bundle(SpriteSheetBundle {
-        sprite: sprite.clone(),
-        texture_atlas: graphics.texture_atlas.clone(),
-        ..Default::default()
-    })
-    .insert(Pickupable {
-        item: ItemType::Axe,
-    })
-    .insert(Name::new("Axe"));
-
-    commands
-    .spawn_bundle(SpriteSheetBundle {
-        sprite: sprite.clone(),
-        texture_atlas: graphics.texture_atlas.clone(),
-        ..Default::default()
-    })
-    .insert(Pickupable {
-        item: ItemType::Twig,
-    })
-    .insert(Name::new("Twig"));
-
-    commands
-    .spawn_bundle(SpriteSheetBundle {
-        sprite: sprite.clone(),
-        texture_atlas: graphics.texture_atlas.clone(),
-        ..Default::default()
-    })
-    .insert(Pickupable {
-        item: ItemType::Grass,
-    })
-    .insert(Name::new("Grass"));
-
-    commands
-    .spawn_bundle(SpriteSheetBundle {
-        sprite: sprite.clone(),
-        texture_atlas: graphics.texture_atlas.clone(),
-        ..Default::default()
-    })
-    .insert(Pickupable {
-        item: ItemType::Wood,
-    })
-    .insert(Name::new("Wood"));
-
-    commands
-    .spawn_bundle(SpriteSheetBundle {
-        sprite: sprite.clone(),
-        texture_atlas: graphics.texture_atlas.clone(),
-        ..Default::default()
-    })
-    .insert(Pickupable {
-        item: ItemType::PineCone,
-    })
-    .insert(Name::new("PineCone"));
+        .spawn_bundle(SpriteSheetBundle {
+            sprite: sprite,
+            texture_atlas: graphics.texture_atlas.clone(),
+            ..Default::default()
+        })
+        .insert(Pickupable {
+            item: ItemType::Flint,
+        })
+        .insert(Name::new("Flint"));
 }
 
 fn spawn_player(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
@@ -239,19 +222,28 @@ fn load_graphics(
         max: Vec2::new(48.0, 16.0),
     });
 
+    let box_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(0.0, 32.0),
+        max: Vec2::new(32.0, 64.0),
+    });
+
+    let mut item_map = HashMap::default();
+    item_map.insert(ItemType::Flint, flint_index);
+
     let atlas_handle = texture_assets.add(atlas);
 
     commands.insert_resource(PlaceHolderGraphics {
         texture_atlas: atlas_handle,
         player_index: player_index,
-        flint_index: flint_index,
+        box_index: box_index,
+        item_map: item_map,
     })
 }
 
 fn spawn_camera(mut commands: Commands) {
     let mut camera = OrthographicCameraBundle::new_2d();
-    camera.orthographic_projection.left = -1.0 * 16.0 / 9.0;
-    camera.orthographic_projection.right = 1.0 * 16.0 / 9.0;
+    camera.orthographic_projection.left = -1.0 * RESOLUTION;
+    camera.orthographic_projection.right = 1.0 * RESOLUTION;
     camera.orthographic_projection.top = 1.0;
     camera.orthographic_projection.bottom = -1.0;
 
