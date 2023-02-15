@@ -7,9 +7,9 @@ use bevy_inspector_egui::{
 
 pub const HEIGHT: f32 = 900.0;
 
-pub const RESOLUTION:f32 = 16.0 / 9.0;
+pub const RESOLUTION: f32 = 16.0 / 9.0;
 
-pub const INVENTORY_SIZE:usize = 10;
+pub const INVENTORY_SIZE: usize = 10;
 
 #[derive(Component)]
 pub struct GameCamera;
@@ -96,17 +96,18 @@ fn spawn_inventory_ui(
     let camera_ent = camera_query.single();
 
     let mut boxes = Vec::new();
+    let mut ui_texts = Vec::new();
+
     let spacing = 84.0;
     let spacing_percent = spacing * 0.02 / RESOLUTION;
+
     let starting_x = (-(INVENTORY_SIZE as f32) / 2.0 + 0.5) * spacing;
     let starting_percent = (0.5 + starting_x / 2.0 / RESOLUTION) * 1.0;
 
     let mut sprite = TextureAtlasSprite::new(graphics.box_index);
     sprite.custom_size = Some(Vec2::splat(50.0));
     for i in 0..INVENTORY_SIZE {
-
-
-        commands
+        ui_texts.push (commands
             .spawn_bundle(TextBundle {
                 style: Style {
                     align_self: AlignSelf::FlexEnd,
@@ -120,30 +121,47 @@ fn spawn_inventory_ui(
                 },
                 text: Text::with_section(
                     "0",
-                    TextStyle { 
+                    TextStyle {
                         font: asset_server.load("fonts/QuattrocentoSans-Regular.ttf"),
                         font_size: 25.0,
                         color: Color::BLACK,
                     },
-            TextAlignment {
-                            horizontal: HorizontalAlign::Center,
-                            ..Default::default()  
-                        },
+                    TextAlignment {
+                        horizontal: HorizontalAlign::Center,
+                        ..Default::default()
+                    },
                 ),
                 ..Default::default()
             })
-            .insert(UiCountText{ slot: i }).insert(Name::new("Inventory Count"));
+            .insert(UiCountText { slot: i })
+            .insert(Name::new("Inventory Count"))
+            .id());
 
-            boxes.push(commands.spawn_bundle(SpriteSheetBundle {
-                sprite: sprite.clone(),
-                texture_atlas: graphics.texture_atlas.clone(),
-                transform: Transform {
-                    translation: Vec3::new(starting_x + spacing * i as f32, -250.0, -1.0),
+        boxes.push(
+            commands
+                .spawn_bundle(SpriteSheetBundle {
+                    sprite: sprite.clone(),
+                    texture_atlas: graphics.texture_atlas.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(starting_x + spacing * i as f32, -250.0, -1.0),
+                        ..Default::default()
+                    },
                     ..Default::default()
-                },
-                ..Default::default()
-            }).id());
+                })
+                .id(),
+        );
     }
+    commands.spawn_bundle(NodeBundle {
+        style: Style {
+            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            justify_content: JustifyContent::SpaceBetween,
+            ..Default::default()
+        },
+        color: Color::NONE.into(),
+        ..Default::default()
+    })
+    .push_children(&ui_texts)
+    .insert(Name::new("Inventory Text"));
     commands.entity(camera_ent).push_children(&boxes);
 }
 
@@ -184,7 +202,12 @@ fn player_pickup(
 }
 
 fn spawn_flint(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
-    let mut sprite = TextureAtlasSprite::new(*graphics.item_map.get(&ItemType::Flint).expect("No graphic for flint"));
+    let mut sprite = TextureAtlasSprite::new(
+        *graphics
+            .item_map
+            .get(&ItemType::Flint)
+            .expect("No graphic for flint"),
+    );
     sprite.custom_size = Some(Vec2::splat(25.0));
     commands
         .spawn_bundle(SpriteSheetBundle {
