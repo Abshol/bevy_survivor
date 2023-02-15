@@ -1,11 +1,42 @@
 #![allow(clippy::redundant_field_names)]
+#![allow(clippy::type_complexity)]
 use bevy::{prelude::*, render::camera::CameraProjection};
-use bevy_inspector_egui::{InspectorPlugin, WorldInspectorPlugin};
+use bevy_inspector_egui::{InspectorPlugin, WorldInspectorPlugin, Inspectable, RegisterInspectable};
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct Player {
     speed: f32,
+    arm_length: f32,
 }
+
+#[derive(Component, Default, Inspectable)]
+pub struct Inventory {
+    items: [InventoryEntry; 5],
+}
+
+#[derive(Default, Inspectable)]
+pub struct InventoryEntry {
+    item: ItemType,
+    count: usize,
+}
+
+#[derive(Component, Inspectable)]
+pub struct Pickupable {
+    item: ItemType,
+}
+
+#[derive(Default, Inspectable, PartialEq, Eq, Clone, Copy)]
+pub enum ItemType {
+    #[default]
+    None,
+    Flint,
+    Axe,
+    Twig,
+    Grass,
+    Wood,
+    PineCone,
+}
+
 pub struct PlaceHolderGraphics {
     texture_atlas: Handle<TextureAtlas>,
     player_index: usize,
@@ -29,20 +60,118 @@ fn main() {
         .add_startup_system(spawn_camera)
         .add_system(player_movement)
         .add_system(camera_follow)
+        .add_system(player_pickup)
         .add_plugin(WorldInspectorPlugin::new())
+        .register_inspectable::<Inventory>()
+        .register_inspectable::<Player>()
+        .register_inspectable::<Pickupable>()
         .run();
+}
+
+fn player_pickup(
+    mut commands: Commands,
+    keyboard: Res<Input<KeyCode>>,
+    mut player_query: Query<(&Transform, &Player, &mut Inventory)>,
+    pickupable_query: Query<(Entity, &Transform, &Pickupable), Without<Player>>,
+) {
+    //TODO Walk towards item when picking it up
+    let (player_transform, player, mut inventory) = player_query.single_mut();
+    if keyboard.just_pressed(KeyCode::E) {
+        //TODO Pickup the nearest item not first
+        for (ent, transform, pickup) in pickupable_query.iter() {
+            if player.arm_length
+                > Vec3::distance(transform.translation, player_transform.translation)
+            {
+                //Add to item count if item is already in inventory
+                for mut slot in inventory.items.iter_mut() {
+                    if slot.item == pickup.item {
+                        slot.count += 1;
+                        commands.entity(ent).despawn_recursive();
+                        return;
+                    }
+                }
+                //Add item to inventory if you don't have it
+                for mut slot in inventory.items.iter_mut() {
+                    if slot.item == ItemType::None {
+                        slot.item = pickup.item;
+                        slot.count = 1;
+                        commands.entity(ent).despawn_recursive();
+                        return;
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn spawn_flint(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
     let mut sprite = TextureAtlasSprite::new(graphics.flint_index);
     sprite.custom_size = Some(Vec2::splat(25.0));
     commands
-        .spawn_bundle(SpriteSheetBundle {
-            sprite: sprite,
-            texture_atlas: graphics.texture_atlas.clone(),
-            ..Default::default()
-        })
-        .insert(Name::new("Flint"));
+    .spawn_bundle(SpriteSheetBundle {
+        sprite: sprite.clone(),
+        texture_atlas: graphics.texture_atlas.clone(),
+        ..Default::default()
+    })
+    .insert(Pickupable {
+        item: ItemType::Flint,
+    })
+    .insert(Name::new("Flint"));
+
+    commands
+    .spawn_bundle(SpriteSheetBundle {
+        sprite: sprite.clone(),
+        texture_atlas: graphics.texture_atlas.clone(),
+        ..Default::default()
+    })
+    .insert(Pickupable {
+        item: ItemType::Axe,
+    })
+    .insert(Name::new("Axe"));
+
+    commands
+    .spawn_bundle(SpriteSheetBundle {
+        sprite: sprite.clone(),
+        texture_atlas: graphics.texture_atlas.clone(),
+        ..Default::default()
+    })
+    .insert(Pickupable {
+        item: ItemType::Twig,
+    })
+    .insert(Name::new("Twig"));
+
+    commands
+    .spawn_bundle(SpriteSheetBundle {
+        sprite: sprite.clone(),
+        texture_atlas: graphics.texture_atlas.clone(),
+        ..Default::default()
+    })
+    .insert(Pickupable {
+        item: ItemType::Grass,
+    })
+    .insert(Name::new("Grass"));
+
+    commands
+    .spawn_bundle(SpriteSheetBundle {
+        sprite: sprite.clone(),
+        texture_atlas: graphics.texture_atlas.clone(),
+        ..Default::default()
+    })
+    .insert(Pickupable {
+        item: ItemType::Wood,
+    })
+    .insert(Name::new("Wood"));
+
+    commands
+    .spawn_bundle(SpriteSheetBundle {
+        sprite: sprite.clone(),
+        texture_atlas: graphics.texture_atlas.clone(),
+        ..Default::default()
+    })
+    .insert(Pickupable {
+        item: ItemType::PineCone,
+    })
+    .insert(Name::new("PineCone"));
 }
 
 fn spawn_player(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
@@ -54,7 +183,11 @@ fn spawn_player(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
             texture_atlas: graphics.texture_atlas.clone(),
             ..Default::default()
         })
-        .insert(Player { speed: 100.0 })
+        .insert(Player {
+            speed: 100.0,
+            arm_length: 50.0,
+        })
+        .insert(Inventory::default())
         .insert(Name::new("Player"));
 }
 
