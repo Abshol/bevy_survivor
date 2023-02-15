@@ -1,5 +1,6 @@
 #![allow(clippy::redundant_field_names)]
 use bevy::{prelude::*, render::camera::CameraProjection};
+use bevy_inspector_egui::{InspectorPlugin, WorldInspectorPlugin};
 
 #[derive(Component)]
 pub struct Player {
@@ -8,9 +9,11 @@ pub struct Player {
 pub struct PlaceHolderGraphics {
     texture_atlas: Handle<TextureAtlas>,
     player_index: usize,
+    flint_index: usize,
 }
 fn main() {
     App::new()
+        .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::rgb(0.3, 0.5, 0.3)))
         .insert_resource(WindowDescriptor {
             width: 1600.0,
@@ -22,10 +25,24 @@ fn main() {
         })
         .add_startup_system_to_stage(StartupStage::PreStartup, load_graphics)
         .add_startup_system(spawn_player)
+        .add_startup_system(spawn_flint)
         .add_startup_system(spawn_camera)
         .add_system(player_movement)
-        .add_plugins(DefaultPlugins)
+        .add_system(camera_follow)
+        .add_plugin(WorldInspectorPlugin::new())
         .run();
+}
+
+fn spawn_flint(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
+    let mut sprite = TextureAtlasSprite::new(graphics.flint_index);
+    sprite.custom_size = Some(Vec2::splat(25.0));
+    commands
+        .spawn_bundle(SpriteSheetBundle {
+            sprite: sprite,
+            texture_atlas: graphics.texture_atlas.clone(),
+            ..Default::default()
+        })
+        .insert(Name::new("Flint"));
 }
 
 fn spawn_player(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
@@ -37,14 +54,26 @@ fn spawn_player(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
             texture_atlas: graphics.texture_atlas.clone(),
             ..Default::default()
         })
-        .insert(Player { speed: 100.0 });
+        .insert(Player { speed: 100.0 })
+        .insert(Name::new("Player"));
 }
 
 fn camera_follow(
     player_query: Query<&Transform, With<Player>>,
-)
+    mut camera_query: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+) {
+    let player_transform = player_query.single().translation;
+    let mut camera_transform = camera_query.single_mut();
 
-fn player_movement(keyboard: Res<Input<KeyCode>>, time: Res<Time>, mut player_query: Query<(&mut Transform, &Player)>) {
+    camera_transform.translation.x = player_transform.x + 1.0;
+    camera_transform.translation.y = player_transform.y + 1.0;
+}
+
+fn player_movement(
+    keyboard: Res<Input<KeyCode>>,
+    time: Res<Time>,
+    mut player_query: Query<(&mut Transform, &Player)>,
+) {
     let (mut player_transform, player) = player_query.single_mut();
     if keyboard.pressed(KeyCode::A) {
         player_transform.translation.x -= player.speed * time.delta_seconds();
@@ -55,7 +84,7 @@ fn player_movement(keyboard: Res<Input<KeyCode>>, time: Res<Time>, mut player_qu
     if keyboard.pressed(KeyCode::S) {
         player_transform.translation.y -= player.speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::D) { 
+    if keyboard.pressed(KeyCode::D) {
         player_transform.translation.x += player.speed * time.delta_seconds();
     }
 }
@@ -72,11 +101,17 @@ fn load_graphics(
         max: Vec2::splat(32.0),
     });
 
+    let flint_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(32.0, 0.0),
+        max: Vec2::new(48.0, 16.0),
+    });
+
     let atlas_handle = texture_assets.add(atlas);
 
     commands.insert_resource(PlaceHolderGraphics {
         texture_atlas: atlas_handle,
         player_index: player_index,
+        flint_index: flint_index,
     })
 }
 
