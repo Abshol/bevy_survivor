@@ -11,6 +11,9 @@ pub const RESOLUTION:f32 = 16.0 / 9.0;
 
 pub const INVENTORY_SIZE:usize = 10;
 
+#[derive(Component)]
+pub struct GameCamera;
+
 #[derive(Component, Inspectable)]
 pub struct Player {
     speed: f32,
@@ -31,6 +34,11 @@ pub struct InventoryEntry {
 #[derive(Component, Inspectable)]
 pub struct Pickupable {
     item: ItemType,
+}
+
+#[derive(Component)]
+pub struct UiCountText {
+    slot: usize,
 }
 
 #[derive(Default, Inspectable, PartialEq, Eq, Clone, Copy, Hash)]
@@ -82,26 +90,59 @@ fn main() {
 fn spawn_inventory_ui(
     mut commands: Commands,
     graphics: Res<PlaceHolderGraphics>,
-    camera_query: Query<Entity, With<Camera>>
+    camera_query: Query<Entity, With<GameCamera>>,
+    asset_server: Res<AssetServer>,
 ) {
     let camera_ent = camera_query.single();
 
     let mut boxes = Vec::new();
-    let spacing = 65.0;
+    let spacing = 84.0;
+    let spacing_percent = spacing * 0.02 / RESOLUTION;
     let starting_x = (-(INVENTORY_SIZE as f32) / 2.0 + 0.5) * spacing;
+    let starting_percent = (0.5 + starting_x / 2.0 / RESOLUTION) * 1.0;
 
     let mut sprite = TextureAtlasSprite::new(graphics.box_index);
     sprite.custom_size = Some(Vec2::splat(50.0));
     for i in 0..INVENTORY_SIZE {
-        boxes.push(commands.spawn_bundle(SpriteSheetBundle {
-            sprite: sprite.clone(),
-            texture_atlas: graphics.texture_atlas.clone(),
-            transform: Transform {
-                translation: Vec3::new(starting_x + spacing * i as f32, -250.0, -1.0),
+
+
+        commands
+            .spawn_bundle(TextBundle {
+                style: Style {
+                    align_self: AlignSelf::FlexEnd,
+                    position_type: PositionType::Absolute,
+                    position: Rect {
+                        bottom: Val::Percent(8.0),
+                        left: Val::Percent(starting_percent + spacing_percent * i as f32),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                text: Text::with_section(
+                    "0",
+                    TextStyle { 
+                        font: asset_server.load("fonts/QuattrocentoSans-Regular.ttf"),
+                        font_size: 25.0,
+                        color: Color::BLACK,
+                    },
+            TextAlignment {
+                            horizontal: HorizontalAlign::Center,
+                            ..Default::default()  
+                        },
+                ),
                 ..Default::default()
-            },
-            ..Default::default()
-        }).id());
+            })
+            .insert(UiCountText{ slot: i }).insert(Name::new("Inventory Count"));
+
+            boxes.push(commands.spawn_bundle(SpriteSheetBundle {
+                sprite: sprite.clone(),
+                texture_atlas: graphics.texture_atlas.clone(),
+                transform: Transform {
+                    translation: Vec3::new(starting_x + spacing * i as f32, -250.0, -1.0),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }).id());
     }
     commands.entity(camera_ent).push_children(&boxes);
 }
@@ -176,7 +217,7 @@ fn spawn_player(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
 
 fn camera_follow(
     player_query: Query<&Transform, With<Player>>,
-    mut camera_query: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+    mut camera_query: Query<&mut Transform, (With<GameCamera>, Without<Player>)>,
 ) {
     let player_transform = player_query.single().translation;
     let mut camera_transform = camera_query.single_mut();
@@ -241,11 +282,13 @@ fn load_graphics(
 }
 
 fn spawn_camera(mut commands: Commands) {
+    commands.spawn_bundle(UiCameraBundle::default());
     let mut camera = OrthographicCameraBundle::new_2d();
+
     camera.orthographic_projection.left = -1.0 * RESOLUTION;
     camera.orthographic_projection.right = 1.0 * RESOLUTION;
     camera.orthographic_projection.top = 1.0;
     camera.orthographic_projection.bottom = -1.0;
 
-    commands.spawn_bundle(camera);
+    commands.spawn_bundle(camera).insert(GameCamera);
 }

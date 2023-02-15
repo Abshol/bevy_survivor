@@ -1,0 +1,43 @@
+(
+    recipes: [
+        CraftingRecipe (
+            needed: [
+                ItemAndCount (
+                    item: Twig,
+                    count: 1,
+                ),
+                ItemAndCount (
+                    item: Flint,
+                    count: 1,
+                ),
+            ],
+            produces: Item(Tool(Axe)),
+        ),
+        CraftingRecipe (
+            needed: [
+                ItemAndCount (
+                    item: Twig,
+                    count: 1,
+                ),
+                ItemAndCount (
+                    item: Flint,
+                    count: 2,
+                ),
+            ],
+            produces: Item(Tool(Shovel)),
+        ),
+        CraftingRecipe (
+            needed: [
+                ItemAndCount (
+                    item: Grass,
+                    count: 1,
+                ),
+                ItemAndCount (
+                    item: Wood,
+                    count: 1,
+                ),
+            ],
+            produces: CampFire,
+        ),
+    ],
+)
