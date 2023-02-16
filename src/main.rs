@@ -59,6 +59,10 @@ pub enum ItemType {
     Grass,
     Wood,
     PineCone,
+    Fire,
+    ChoppedPineCone,
+
+    Default,
 }
 
 pub struct PlaceHolderGraphics {
@@ -66,6 +70,14 @@ pub struct PlaceHolderGraphics {
     player_index: usize,
     box_index: usize,
     item_map: HashMap<ItemType, usize>,
+    axe_index: usize,
+    pinecone_index: usize,
+    twig_index: usize,
+    wood_index: usize,
+    fire_index: usize,
+    chopped_pinecone_index: usize,
+
+    default_index: usize,
 }
 
 fn main() {
@@ -82,8 +94,8 @@ fn main() {
         })
         .add_startup_system_to_stage(StartupStage::PreStartup, load_graphics)
         .add_startup_system_to_stage(StartupStage::PreStartup, spawn_camera)
-        .add_startup_system(spawn_player)
-        .add_startup_system(spawn_flint)
+        .add_startup_system(spawn_player.label("player"))
+        .add_startup_system(spawn_flint.before("player"))
         .add_startup_system(spawn_inventory_ui)
         .add_system(player_movement)
         .add_system(camera_follow)
@@ -97,10 +109,7 @@ fn main() {
         .run();
 }
 
-fn drop_item_test(
-    keyboard: Res<Input<KeyCode>>,
-    mut inventory_query: Query<&mut Inventory>,
-) {
+fn drop_item_test(keyboard: Res<Input<KeyCode>>, mut inventory_query: Query<&mut Inventory>) {
     let mut inventory = inventory_query.single_mut();
     if keyboard.just_pressed(KeyCode::Q) {
         inventory.items[0].count = 0;
@@ -130,50 +139,52 @@ fn update_inventory_ui(
         for (box_ent, children, ui_box) in box_query.iter() {
             if ui_box.slot == i {
                 //Change graphic if there is a graphic
-                if children.is_some() && slot.count > 0 {
-                    for child in children.unwrap().iter() {
-                        let mut sprite = box_contents_query.get_mut(*child).expect("Nonsprite child of box");
+                if slot.count != 0 {
+                    match children {
+                        Some(children) => {
+                            for child in children.iter() {
+                                let mut sprite = box_contents_query
+                                    .get_mut(*child)
+                                    .expect("Nonsprite child of box");
 
-                        sprite.index =
-                            *graphics
-                                .item_map
-                                .get(&slot.item)
-                                .expect("Error: No graphics for item");
+                                sprite.index = *graphics
+                                    .item_map
+                                    .get(&slot.item)
+                                    .expect("Error: No graphics for item");
+                            }
+                        }
+                        None => {
+                            let mut sprite = TextureAtlasSprite::new(
+                                *graphics
+                                    .item_map
+                                    .get(&slot.item)
+                                    .expect("Error: No graphics for item"),
+                            );
+                            sprite.custom_size = Some(Vec2::splat(25.0));
+                            let graphic = commands
+                                .spawn_bundle(SpriteSheetBundle {
+                                    sprite: sprite,
+                                    texture_atlas: graphics.texture_atlas.clone(),
+                                    ..Default::default()
+                                })
+                                .insert(Name::new("ItemGraphic"))
+                                .insert(UiBoxContents)
+                                .id();
+                            commands.entity(box_ent).add_child(graphic);
+                        }
                     }
-                }
-                //Create graphic
-                if children.is_none() && slot.count != 0 {
-                    let mut sprite = TextureAtlasSprite::new(
-                        *graphics
-                            .item_map
-                            .get(&slot.item)
-                            .expect("Error: No graphics for item"),
-                    );
-                    sprite.custom_size = Some(Vec2::splat(25.0));
-                    let graphic = commands
-                        .spawn_bundle(SpriteSheetBundle {
-                            sprite: sprite,
-                            texture_atlas: graphics.texture_atlas.clone(),
-                            ..Default::default()
-                        })
-                        .insert(Name::new("ItemGraphic"))
-                        .insert(UiBoxContents)
-                        .id();
-                    commands.entity(box_ent).add_child(graphic);
-                    
-                }
-                //Despawn graphic if there is a graphic but the count is = 0
-                if children.is_some() && slot.count == 0 {
-                    for child in children.unwrap().iter() {
-                        if box_contents_query.get(*child).is_ok() {
-                            commands.entity(*child).despawn_recursive();
+                } else if let Some(children) = children {
+                        //Slot empty, we despawn the children
+                        for child in children.iter() {
+                            if box_contents_query.get(*child).is_ok() {
+                                commands.entity(*child).despawn_recursive();
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
 
 fn spawn_inventory_ui(
     mut commands: Commands,
@@ -190,40 +201,42 @@ fn spawn_inventory_ui(
     let spacing_percent = spacing / 3.6 / RESOLUTION / 2.0;
 
     let starting_x = (-(INVENTORY_SIZE as f32) / 2.0 + 0.5) * spacing;
-    let starting_percent = 125.5 + starting_x  / RESOLUTION / 2.0;
+    let starting_percent = 125.5 + starting_x / RESOLUTION / 2.0;
 
     let mut sprite = TextureAtlasSprite::new(graphics.box_index);
     sprite.custom_size = Some(Vec2::splat(50.0));
     for i in 0..INVENTORY_SIZE {
-        ui_texts.push (commands
-            .spawn_bundle(TextBundle {
-                style: Style {
-                    align_self: AlignSelf::FlexEnd,
-                    position_type: PositionType::Absolute,
-                    position: Rect {
-                        bottom: Val::Percent(11.0),
-                        left: Val::Percent(starting_percent + spacing_percent * i as f32),
+        ui_texts.push(
+            commands
+                .spawn_bundle(TextBundle {
+                    style: Style {
+                        align_self: AlignSelf::FlexEnd,
+                        position_type: PositionType::Absolute,
+                        position: Rect {
+                            bottom: Val::Percent(11.0),
+                            left: Val::Percent(starting_percent + spacing_percent * i as f32),
+                            ..Default::default()
+                        },
                         ..Default::default()
                     },
+                    text: Text::with_section(
+                        "",
+                        TextStyle {
+                            font: asset_server.load("fonts/QuattrocentoSans-Regular.ttf"),
+                            font_size: 25.0,
+                            color: Color::BLACK,
+                        },
+                        TextAlignment {
+                            horizontal: HorizontalAlign::Center,
+                            ..Default::default()
+                        },
+                    ),
                     ..Default::default()
-                },
-                text: Text::with_section(
-                    "",
-                    TextStyle {
-                        font: asset_server.load("fonts/QuattrocentoSans-Regular.ttf"),
-                        font_size: 25.0,
-                        color: Color::BLACK,
-                    },
-                    TextAlignment {
-                        horizontal: HorizontalAlign::Center,
-                        ..Default::default()
-                    },
-                ),
-                ..Default::default()
-            })
-            .insert(UiCountText { slot: i })
-            .insert(Name::new("Inventory Count"))
-            .id());
+                })
+                .insert(UiCountText { slot: i })
+                .insert(Name::new("Inventory Count"))
+                .id(),
+        );
 
         boxes.push(
             commands
@@ -240,17 +253,18 @@ fn spawn_inventory_ui(
                 .id(),
         );
     }
-    commands.spawn_bundle(NodeBundle {
-        style: Style {
-            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-            justify_content: JustifyContent::SpaceBetween,
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                justify_content: JustifyContent::SpaceBetween,
+                ..Default::default()
+            },
+            color: Color::NONE.into(),
             ..Default::default()
-        },
-        color: Color::NONE.into(),
-        ..Default::default()
-    })
-    .push_children(&ui_texts)
-    .insert(Name::new("Inventory Text"));
+        })
+        .push_children(&ui_texts)
+        .insert(Name::new("Inventory Text"));
     commands.entity(camera_ent).push_children(&boxes);
 }
 
@@ -375,13 +389,61 @@ fn load_graphics(
         max: Vec2::new(48.0, 16.0),
     });
 
+    let axe_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(32.0, 18.0),
+        max: Vec2::new(48.0, 32.0),
+    });
+
     let box_index = atlas.add_texture(bevy::sprite::Rect {
         min: Vec2::new(0.0, 32.0),
         max: Vec2::new(32.0, 64.0),
     });
 
+    let grass_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(50.0, 0.0),
+        max: Vec2::new(64.0, 16.0),
+    });
+
+    let pinecone_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(0.0, 75.0),
+        max: Vec2::new(32.0, 112.0),
+    });
+
+    let twig_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(49.0, 18.0),
+        max: Vec2::new(65.0, 32.0),
+    });
+
+    let wood_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(34.0, 34.0),
+        max: Vec2::new(50.0, 51.0),
+    });
+
+    let fire_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(32.0, 50.0),
+        max: Vec2::new(64.0, 106.0),
+    });
+
+    let chopped_pinecone_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(0.0, 128.0),
+        max: Vec2::new(32.0, 128.0 + 16.0),
+    });
+
+    let default_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(240.0, 240.0),
+        max: Vec2::new(256.0, 256.0),
+    });
+
     let mut item_map = HashMap::default();
     item_map.insert(ItemType::Flint, flint_index);
+    item_map.insert(ItemType::Axe, axe_index);
+    item_map.insert(ItemType::Grass, grass_index);
+    item_map.insert(ItemType::PineCone, pinecone_index);
+    item_map.insert(ItemType::Twig, twig_index);
+    item_map.insert(ItemType::Wood, wood_index);
+    item_map.insert(ItemType::Fire, fire_index);
+    item_map.insert(ItemType::ChoppedPineCone, chopped_pinecone_index);
+    item_map.insert(ItemType::Default, default_index);
 
     let atlas_handle = texture_assets.add(atlas);
 
@@ -390,6 +452,14 @@ fn load_graphics(
         player_index: player_index,
         box_index: box_index,
         item_map: item_map,
+        axe_index: axe_index,
+        pinecone_index: pinecone_index,
+        twig_index: twig_index,
+        wood_index: wood_index,
+        fire_index: fire_index,
+        chopped_pinecone_index: chopped_pinecone_index,
+
+        default_index: default_index,
     })
 }
 
