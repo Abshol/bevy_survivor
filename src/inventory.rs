@@ -86,7 +86,7 @@ fn update_inventory_ui(
                 if slot.count > 0 {
                     text.sections[0].value = format!("{}", slot.count);
                 } else {
-                    text.sections[0].value = format!("");
+                    text.sections[0].value = String::new();
                 }
             }
         }

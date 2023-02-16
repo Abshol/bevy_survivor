@@ -1,10 +1,9 @@
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::type_complexity)]
-use bevy::{prelude::*, render::camera::CameraProjection, utils::HashMap};
+use bevy::{prelude::*};
 use bevy_inspector_egui::RegisterInspectable;
 
 pub const HEIGHT: f32 = 900.0;
-
 pub const RESOLUTION: f32 = 16.0 / 9.0;
 
 #[derive(Component)]
@@ -15,9 +14,9 @@ mod inventory;
 mod player;
 
 use bevy_inspector_egui::WorldInspectorPlugin;
-use graphics::{GraphicsPlugin, PlaceHolderGraphics};
-use inventory::{Inventory, InventoryPlugin, ItemType, Pickupable};
-use player::{Player, PlayerPlugin};
+use graphics::{PlaceHolderGraphics};
+use inventory::{Inventory, ItemType, Pickupable};
+use player::{Player};
 
 fn main() {
     App::new()
