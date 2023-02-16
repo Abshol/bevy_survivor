@@ -13,7 +13,7 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(spawn_player.label("player"))
+        app.add_startup_system(spawn_player)
             .add_system(player_movement)
             .add_system(camera_follow);
     }
@@ -26,6 +26,10 @@ fn spawn_player(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
         .spawn_bundle(SpriteSheetBundle {
             sprite: sprite,
             texture_atlas: graphics.texture_atlas.clone(),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 700.0),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .insert(Player {

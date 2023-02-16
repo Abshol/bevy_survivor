@@ -1,10 +1,11 @@
 use bevy::{prelude::*, utils::HashMap};
 
-use crate::inventory::ItemType;
+use crate::items::ItemType;
 
 pub struct PlaceHolderGraphics {
     pub texture_atlas: Handle<TextureAtlas>,
     pub player_index: usize,
+    pub flint_index: usize,
     pub box_index: usize,
     pub item_map: HashMap<ItemType, usize>,
     pub axe_index: usize,
@@ -13,6 +14,7 @@ pub struct PlaceHolderGraphics {
     pub wood_index: usize,
     pub fire_index: usize,
     pub chopped_pinecone_index: usize,
+    pub none_index: usize,
 
     pub default_index: usize,
 }
@@ -74,12 +76,17 @@ fn load_graphics(
 
     let fire_index = atlas.add_texture(bevy::sprite::Rect {
         min: Vec2::new(32.0, 50.0),
-        max: Vec2::new(64.0, 106.0),
+        max: Vec2::new(64.0, 95.0),
     });
 
     let chopped_pinecone_index = atlas.add_texture(bevy::sprite::Rect {
         min: Vec2::new(0.0, 128.0),
         max: Vec2::new(32.0, 128.0 + 16.0),
+    });
+
+    let none_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(240.0 - 16.0, 240.0 - 16.0),
+        max: Vec2::new(256.0 - 16.0, 256.0 - 16.0),
     });
 
     let default_index = atlas.add_texture(bevy::sprite::Rect {
@@ -88,6 +95,7 @@ fn load_graphics(
     });
 
     let mut item_map = HashMap::default();
+
     item_map.insert(ItemType::Flint, flint_index);
     item_map.insert(ItemType::Axe, axe_index);
     item_map.insert(ItemType::Grass, grass_index);
@@ -96,13 +104,14 @@ fn load_graphics(
     item_map.insert(ItemType::Wood, wood_index);
     item_map.insert(ItemType::Fire, fire_index);
     item_map.insert(ItemType::ChoppedPineCone, chopped_pinecone_index);
-    item_map.insert(ItemType::Default, default_index);
+    item_map.insert(ItemType::None, none_index);
 
     let atlas_handle = texture_assets.add(atlas);
 
     commands.insert_resource(PlaceHolderGraphics {
         texture_atlas: atlas_handle,
         player_index: player_index,
+        flint_index: flint_index,
         box_index: box_index,
         item_map: item_map,
         axe_index: axe_index,
@@ -111,6 +120,7 @@ fn load_graphics(
         wood_index: wood_index,
         fire_index: fire_index,
         chopped_pinecone_index: chopped_pinecone_index,
+        none_index: none_index,
 
         default_index: default_index,
     })

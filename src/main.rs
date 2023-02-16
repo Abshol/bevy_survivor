@@ -12,10 +12,14 @@ pub struct GameCamera;
 mod graphics;
 mod inventory;
 mod player;
+mod items;
 
 use bevy_inspector_egui::WorldInspectorPlugin;
 use graphics::{PlaceHolderGraphics};
-use inventory::{Inventory, ItemType, Pickupable};
+use inventory::{Inventory, Pickupable};
+use items::ItemData;
+use items::ItemType;
+use items::Items;
 use player::{Player};
 
 fn main() {
@@ -31,35 +35,15 @@ fn main() {
             ..Default::default()
         })
         .add_startup_system_to_stage(StartupStage::PreStartup, spawn_camera)
-        .add_startup_system(spawn_flint.before("player"))
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(inventory::InventoryPlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(graphics::GraphicsPlugin)
+        .add_plugin(items::ItemPlugin)
         .register_inspectable::<Inventory>()
         .register_inspectable::<Player>()
         .register_inspectable::<Pickupable>()
         .run();
-}
-
-fn spawn_flint(mut commands: Commands, graphics: Res<PlaceHolderGraphics>) {
-    let mut sprite = TextureAtlasSprite::new(
-        *graphics
-            .item_map
-            .get(&ItemType::Flint)
-            .expect("No graphic for flint"),
-    );
-    sprite.custom_size = Some(Vec2::splat(25.0));
-    commands
-        .spawn_bundle(SpriteSheetBundle {
-            sprite: sprite,
-            texture_atlas: graphics.texture_atlas.clone(),
-            ..Default::default()
-        })
-        .insert(Pickupable {
-            item: ItemType::Flint,
-        })
-        .insert(Name::new("Flint"));
 }
 
 fn spawn_camera(mut commands: Commands) {

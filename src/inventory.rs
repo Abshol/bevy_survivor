@@ -1,10 +1,10 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
+use bevy_inspector_egui::{Inspectable, RegisterInspectable};
 
 pub const INVENTORY_SIZE: usize = 10;
 
 use crate::{
-    graphics::PlaceHolderGraphics, player::Player, GameCamera, RESOLUTION,
+    graphics::PlaceHolderGraphics, player::Player, GameCamera, RESOLUTION, items::ItemType,
 };
 
 #[derive(Component, Default, Inspectable)]
@@ -14,8 +14,8 @@ pub struct Inventory {
 
 #[derive(Default, Inspectable)]
 pub struct InventoryEntry {
-    item: ItemType,
-    count: usize,
+    pub item: ItemType,
+    pub count: usize,
 }
 
 #[derive(Component, Inspectable)]
@@ -28,29 +28,13 @@ pub struct UiCountText {
     slot: usize,
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct UiBox {
     slot: usize,
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct UiBoxContents;
-
-#[derive(Default, Inspectable, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum ItemType {
-    #[default]
-    None,
-    Flint,
-    Axe,
-    Twig,
-    Grass,
-    Wood,
-    PineCone,
-    Fire,
-    ChoppedPineCone,
-
-    Default,
-}
 
 pub struct InventoryPlugin;
 
@@ -59,7 +43,9 @@ impl Plugin for InventoryPlugin {
         app.add_startup_system(spawn_inventory_ui)
             .add_system(player_pickup)
             .add_system(update_inventory_ui)
-            .add_system(drop_item_test);
+            .add_system(drop_item_test)
+            .register_inspectable::<UiBoxContents>()
+            .register_inspectable::<UiBox>();
     }
 }
 
@@ -132,6 +118,16 @@ fn update_inventory_ui(
                     for child in children.iter() {
                         if box_contents_query.get(*child).is_ok() {
                             commands.entity(*child).despawn_recursive();
+                            let sprite = TextureAtlasSprite::new(graphics.none_index);
+                            let new_child = commands.spawn_bundle(
+                                SpriteSheetBundle {
+                                    sprite: sprite,
+                                    texture_atlas: graphics.texture_atlas.clone(),
+                                    ..Default::default()
+                                }).insert(Name::new("ItemGraphic"))
+                                .insert(UiBoxContents)
+                                .id();
+                            commands.entity(box_ent).add_child(new_child);
                         }
                     }
                 }
@@ -234,7 +230,7 @@ fn player_pickup(
         //TODO Pickup the nearest item not first
         for (ent, transform, pickup) in pickupable_query.iter() {
             if player.arm_length
-                > Vec3::distance(transform.translation, player_transform.translation)
+                > Vec2::distance(transform.translation.truncate(), player_transform.translation.truncate())
             {
                 //Add to item count if item is already in inventory
                 for mut slot in inventory.items.iter_mut() {
