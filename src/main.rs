@@ -41,6 +41,14 @@ pub struct UiCountText {
     slot: usize,
 }
 
+#[derive(Component)]
+pub struct UiBox {
+    slot: usize,
+}
+
+#[derive(Component)]
+pub struct UiBoxContents;
+
 #[derive(Default, Inspectable, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum ItemType {
     #[default]
@@ -80,11 +88,91 @@ fn main() {
         .add_system(player_movement)
         .add_system(camera_follow)
         .add_system(player_pickup)
+        .add_system(update_inventory_ui)
+        .add_system(drop_item_test)
         .add_plugin(WorldInspectorPlugin::new())
         .register_inspectable::<Inventory>()
         .register_inspectable::<Player>()
         .register_inspectable::<Pickupable>()
         .run();
+}
+
+fn drop_item_test(
+    keyboard: Res<Input<KeyCode>>,
+    mut inventory_query: Query<&mut Inventory>,
+) {
+    let mut inventory = inventory_query.single_mut();
+    if keyboard.just_pressed(KeyCode::Q) {
+        inventory.items[0].count = 0;
+        inventory.items[0].item = ItemType::None;
+    }
+}
+
+fn update_inventory_ui(
+    mut commands: Commands,
+    inventory_query: Query<&Inventory>,
+    graphics: Res<PlaceHolderGraphics>,
+    box_query: Query<(Entity, Option<&Children>, &UiBox)>,
+    mut box_contents_query: Query<&mut TextureAtlasSprite, With<UiBoxContents>>,
+    mut text_query: Query<(&UiCountText, &mut Text)>,
+) {
+    let inventory = inventory_query.single();
+    for (i, slot) in inventory.items.iter().enumerate() {
+        for (text_count, mut text) in text_query.iter_mut() {
+            if text_count.slot == i {
+                if slot.count > 0 {
+                    text.sections[0].value = format!("{}", slot.count);
+                } else {
+                    text.sections[0].value = format!("");
+                }
+            }
+        }
+        for (box_ent, children, ui_box) in box_query.iter() {
+            if ui_box.slot == i {
+                //Change graphic if there is a graphic
+                if children.is_some() && slot.count > 0 {
+                    for child in children.unwrap().iter() {
+                        let mut sprite = box_contents_query.get_mut(*child).expect("Nonsprite child of box");
+
+                        sprite.index =
+                            *graphics
+                                .item_map
+                                .get(&slot.item)
+                                .expect("Error: No graphics for item");
+                    }
+                }
+                //Create graphic
+                if children.is_none() && slot.count != 0 {
+                    let mut sprite = TextureAtlasSprite::new(
+                        *graphics
+                            .item_map
+                            .get(&slot.item)
+                            .expect("Error: No graphics for item"),
+                    );
+                    sprite.custom_size = Some(Vec2::splat(25.0));
+                    let graphic = commands
+                        .spawn_bundle(SpriteSheetBundle {
+                            sprite: sprite,
+                            texture_atlas: graphics.texture_atlas.clone(),
+                            ..Default::default()
+                        })
+                        .insert(Name::new("ItemGraphic"))
+                        .insert(UiBoxContents)
+                        .id();
+                    commands.entity(box_ent).add_child(graphic);
+                    
+                }
+                //Despawn graphic if there is a graphic but the count is = 0
+                if children.is_some() && slot.count == 0 {
+                    for child in children.unwrap().iter() {
+                        if box_contents_query.get(*child).is_ok() {
+                            commands.entity(*child).despawn_recursive();
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn spawn_inventory_ui(
@@ -120,7 +208,7 @@ fn spawn_inventory_ui(
                     ..Default::default()
                 },
                 text: Text::with_section(
-                    "0",
+                    "",
                     TextStyle {
                         font: asset_server.load("fonts/QuattrocentoSans-Regular.ttf"),
                         font_size: 25.0,
@@ -148,6 +236,7 @@ fn spawn_inventory_ui(
                     },
                     ..Default::default()
                 })
+                .insert(UiBox { slot: i })
                 .id(),
         );
     }
