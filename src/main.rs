@@ -99,10 +99,10 @@ fn spawn_inventory_ui(
     let mut ui_texts = Vec::new();
 
     let spacing = 84.0;
-    let spacing_percent = spacing * 0.02 / RESOLUTION;
+    let spacing_percent = spacing / 3.6 / RESOLUTION / 2.0;
 
     let starting_x = (-(INVENTORY_SIZE as f32) / 2.0 + 0.5) * spacing;
-    let starting_percent = (0.5 + starting_x / 2.0 / RESOLUTION) * 1.0;
+    let starting_percent = 125.5 + starting_x  / RESOLUTION / 2.0;
 
     let mut sprite = TextureAtlasSprite::new(graphics.box_index);
     sprite.custom_size = Some(Vec2::splat(50.0));
@@ -113,7 +113,7 @@ fn spawn_inventory_ui(
                     align_self: AlignSelf::FlexEnd,
                     position_type: PositionType::Absolute,
                     position: Rect {
-                        bottom: Val::Percent(8.0),
+                        bottom: Val::Percent(11.0),
                         left: Val::Percent(starting_percent + spacing_percent * i as f32),
                         ..Default::default()
                     },
@@ -143,7 +143,7 @@ fn spawn_inventory_ui(
                     sprite: sprite.clone(),
                     texture_atlas: graphics.texture_atlas.clone(),
                     transform: Transform {
-                        translation: Vec3::new(starting_x + spacing * i as f32, -250.0, -1.0),
+                        translation: Vec3::new(starting_x + spacing * i as f32, -260.0, -1.0),
                         ..Default::default()
                     },
                     ..Default::default()
