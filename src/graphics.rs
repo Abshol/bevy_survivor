@@ -15,6 +15,7 @@ pub struct PlaceHolderGraphics {
     pub fire_index: usize,
     pub chopped_pinecone_index: usize,
     pub none_index: usize,
+    pub selected_box_index: usize,
 
     pub default_index: usize,
 }
@@ -94,6 +95,11 @@ fn load_graphics(
         max: Vec2::new(256.0, 256.0),
     });
 
+    let selected_box_index = atlas.add_texture(bevy::sprite::Rect {
+        min: Vec2::new(65.0, 34.0),
+        max: Vec2::new(96.0, 64.0),
+    });
+
     let mut item_map = HashMap::default();
 
     item_map.insert(ItemType::Flint, flint_index);
@@ -121,6 +127,7 @@ fn load_graphics(
         fire_index: fire_index,
         chopped_pinecone_index: chopped_pinecone_index,
         none_index: none_index,
+        selected_box_index: selected_box_index,
 
         default_index: default_index,
     })
