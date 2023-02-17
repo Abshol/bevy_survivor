@@ -16,10 +16,11 @@ mod items;
 
 use bevy_inspector_egui::WorldInspectorPlugin;
 use graphics::{PlaceHolderGraphics};
-use inventory::{Inventory, Pickupable};
+use inventory::{Inventory};
 use items::ItemData;
 use items::ItemType;
 use items::Items;
+use items::Pickupable;
 use player::{Player};
 
 fn main() {

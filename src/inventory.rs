@@ -4,23 +4,19 @@ use bevy_inspector_egui::{Inspectable, RegisterInspectable};
 pub const INVENTORY_SIZE: usize = 10;
 
 use crate::{
-    graphics::PlaceHolderGraphics, player::Player, GameCamera, RESOLUTION, items::ItemType,
+    graphics::PlaceHolderGraphics, player::Player, GameCamera, RESOLUTION, items::{ItemType, Pickupable, ItemData, spawn_item},
 };
 
 #[derive(Component, Default, Inspectable)]
 pub struct Inventory {
     items: [InventoryEntry; INVENTORY_SIZE],
+    slot: usize,
 }
 
 #[derive(Default, Inspectable)]
 pub struct InventoryEntry {
-    pub item: ItemType,
+    pub item: ItemData,
     pub count: usize,
-}
-
-#[derive(Component, Inspectable)]
-pub struct Pickupable {
-    pub(crate) item: ItemType,
 }
 
 #[derive(Component)]
@@ -44,16 +40,65 @@ impl Plugin for InventoryPlugin {
             .add_system(player_pickup)
             .add_system(update_inventory_ui)
             .add_system(drop_item_test)
+            .add_system(change_inv_select)
             .register_inspectable::<UiBoxContents>()
             .register_inspectable::<UiBox>();
     }
 }
 
-fn drop_item_test(keyboard: Res<Input<KeyCode>>, mut inventory_query: Query<&mut Inventory>) {
+fn change_inv_select(keyboard: Res<Input<KeyCode>>, mut inventory_query: Query<&mut Inventory>) {
     let mut inventory = inventory_query.single_mut();
-    if keyboard.just_pressed(KeyCode::Q) {
-        inventory.items[0].count = 0;
-        inventory.items[0].item = ItemType::None;
+    if keyboard.just_pressed(KeyCode::Key1) {
+        inventory.slot = 1 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key2) {
+        inventory.slot = 2 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key3) {
+        inventory.slot = 3 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key4) {
+        inventory.slot = 4 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key5) {
+        inventory.slot = 5 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key6) {
+        inventory.slot = 6 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key7) {
+        inventory.slot = 7 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key8) {
+        inventory.slot = 8 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key9) {
+        inventory.slot = 9 - 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key0) {
+        inventory.slot = 10 - 1;
+    }
+    
+}
+
+fn drop_item_test(commands: Commands, graphics: Res<PlaceHolderGraphics>, keyboard: Res<Input<KeyCode>>, player_query: Query<&Transform, With<Player>>, mut inventory_query: Query<&mut Inventory>) {
+    
+    let mut inventory = inventory_query.single_mut();
+    let selected = inventory.slot;
+    let player_pos = player_query.single().translation;
+    if keyboard.just_pressed(KeyCode::Q) && inventory.items[selected].count != 0 {
+        inventory.items[selected].count -= 1;
+        let mut sprite = TextureAtlasSprite::new(
+            *graphics
+            .item_map
+            .get(&inventory.items[selected].item.types)
+            .expect("No graphic for item")
+        );
+        sprite.custom_size = Some(Vec2::splat(25.0));
+        spawn_item(commands, graphics, &inventory.items[selected].item, Vec2::new(player_pos.x, player_pos.y), sprite);
+        if inventory.items[selected].count <= 0 {
+            inventory.items[selected].item.types = ItemType::None;
+        }
     }
 }
 
@@ -89,7 +134,7 @@ fn update_inventory_ui(
 
                                 sprite.index = *graphics
                                     .item_map
-                                    .get(&slot.item)
+                                    .get(&slot.item.types)
                                     .expect("Error: No graphics for item");
                             }
                         }
@@ -97,7 +142,7 @@ fn update_inventory_ui(
                             let mut sprite = TextureAtlasSprite::new(
                                 *graphics
                                     .item_map
-                                    .get(&slot.item)
+                                    .get(&slot.item.types)
                                     .expect("Error: No graphics for item"),
                             );
                             sprite.custom_size = Some(Vec2::splat(25.0));
@@ -234,7 +279,7 @@ fn player_pickup(
             {
                 //Add to item count if item is already in inventory
                 for mut slot in inventory.items.iter_mut() {
-                    if slot.item == pickup.item {
+                    if slot.item.types == pickup.item {
                         slot.count += 1;
                         commands.entity(ent).despawn_recursive();
                         return;
@@ -242,8 +287,8 @@ fn player_pickup(
                 }
                 //Add item to inventory if you don't have it
                 for mut slot in inventory.items.iter_mut() {
-                    if slot.item == ItemType::None {
-                        slot.item = pickup.item;
+                    if slot.item.types == ItemType::None {
+                        slot.item.types = pickup.item;
                         slot.count = 1;
                         commands.entity(ent).despawn_recursive();
                         return;
