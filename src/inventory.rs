@@ -49,7 +49,24 @@ impl Plugin for InventoryPlugin {
     }
 }
 
-fn give_item(inventory: &mut Inventory, to_give: ItemType) -> bool {
+pub fn remove_item(inventory: &mut Inventory, to_remove: ItemType, amount: usize) -> bool {
+    for mut slot in inventory.items.iter_mut() {
+        if slot.item.types == to_remove {
+            if slot.count < amount {
+                return false;
+            } else {
+                slot.count -= amount;
+                if slot.count == 0 {
+                    slot.item.types = ItemType::None;
+                }
+                return true;
+            }
+        }
+    }
+    false
+}
+
+pub fn give_item(inventory: &mut Inventory, to_give: ItemType) -> bool {
     //Add to item count if item is already in inventory
     for mut slot in inventory.items.iter_mut() {
         if slot.item.types == to_give {
@@ -66,43 +83,6 @@ fn give_item(inventory: &mut Inventory, to_give: ItemType) -> bool {
         }
     }
     return false;
-}
-
-fn change_inv_select(keyboard: Res<Input<KeyCode>>, mut inventory_query: Query<&mut Inventory>) {
-    let mut inventory = inventory_query.single_mut();
-    let mut slot = 0;
-    if keyboard.just_pressed(KeyCode::Key1) {
-        slot = 0;
-    }
-    if keyboard.just_pressed(KeyCode::Key2) {
-        slot = 1;
-    }
-    if keyboard.just_pressed(KeyCode::Key3) {
-        slot = 2;
-    }
-    if keyboard.just_pressed(KeyCode::Key4) {
-        slot = 3;
-    }
-    if keyboard.just_pressed(KeyCode::Key5) {
-        slot = 4;
-    }
-    if keyboard.just_pressed(KeyCode::Key6) {
-        slot = 5;
-    }
-    if keyboard.just_pressed(KeyCode::Key7) {
-        slot = 6;
-    }
-    if keyboard.just_pressed(KeyCode::Key8) {
-        slot = 7;
-    }
-    if keyboard.just_pressed(KeyCode::Key9) {
-        slot = 8;
-    }
-    if keyboard.just_pressed(KeyCode::Key0) {
-        slot = 9;
-    }
-
-    inventory.selected = slot;
 }
 
 fn drop_item(
@@ -138,6 +118,41 @@ fn drop_item(
     }
 }
 
+fn change_inv_select(keyboard: Res<Input<KeyCode>>, mut inventory_query: Query<&mut Inventory>) {
+    let mut inventory = inventory_query.single_mut();
+    if keyboard.just_pressed(KeyCode::Key1) {
+        inventory.selected = 0;
+    }
+    if keyboard.just_pressed(KeyCode::Key2) {
+        inventory.selected = 1;
+    }
+    if keyboard.just_pressed(KeyCode::Key3) {
+        inventory.selected = 2;
+    }
+    if keyboard.just_pressed(KeyCode::Key4) {
+        inventory.selected = 3;
+    }
+    if keyboard.just_pressed(KeyCode::Key5) {
+        inventory.selected = 4;
+    }
+    if keyboard.just_pressed(KeyCode::Key6) {
+        inventory.selected = 5;
+    }
+    if keyboard.just_pressed(KeyCode::Key7) {
+        inventory.selected = 6;
+    }
+    if keyboard.just_pressed(KeyCode::Key8) {
+        inventory.selected = 7;
+    }
+    if keyboard.just_pressed(KeyCode::Key9) {
+        inventory.selected = 8;
+    }
+    if keyboard.just_pressed(KeyCode::Key0) {
+        inventory.selected = 9;
+    }
+}
+
+
 fn update_inventory_ui(
     mut commands: Commands,
     inventory_query: Query<&Inventory>,
@@ -148,10 +163,6 @@ fn update_inventory_ui(
 ) {
     let inventory = inventory_query.single();
     for (i, slot) in inventory.items.iter().enumerate() {
-        if inventory.selected == i {
-            slot.
-        }
-
         for (text_count, mut text) in text_query.iter_mut() {
             if text_count.slot == i {
                 if slot.count > 0 {
